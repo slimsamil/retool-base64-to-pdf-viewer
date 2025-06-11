@@ -5,6 +5,7 @@
   "dependencies": {
     "@tryretool/custom-component-support": "latest",
     "lucide-react": "^0.475.0",
+    "my-react-app": "file:",
     "pdfjs-dist": "^4.10.38",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -35,9 +36,9 @@
     "prettier": "^3.0.3"
   },
   "retoolCustomComponentLibraryConfig": {
-    "name": "Custompdfviewer",
-    "label": "custompdfviewer",
-    "description": "",
+    "name": "Pdfviewerbase64",
+    "label": "pdfviewerbase64",
+    "description": "views pdfs",
     "entryPoint": "src/index.tsx",
     "outputPath": "dist"
   }
