@@ -3,7 +3,7 @@ import { Retool } from "@tryretool/custom-component-support";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
-import { ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, ZoomIn, ZoomOut } from "lucide-react";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -44,6 +44,7 @@ export const PDFViewer: FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [pageWidth, setPageWidth] = useState<number | null>(null);
+  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -187,16 +188,28 @@ export const PDFViewer: FC = () => {
   }, [currentPage, numPages, goToPage]);
 
   const calcAutoScale = useCallback(() => {
-    if (!containerWidth || !pageWidth) return 1.0;
-    const scale = (containerWidth - 40) / pageWidth; // 40px für Padding
-    return Math.min(Math.max(scale, 0.5), 3.0); // Begrenze Skalierung
-  }, [containerWidth, pageWidth]);
+    if (!containerWidth || !pageWidth) return zoomLevel;
+    const autoScale = (containerWidth - 40) / pageWidth; // 40px für Padding
+    return autoScale * zoomLevel; // Kombiniere Auto-Scale mit Zoom
+  }, [containerWidth, pageWidth, zoomLevel]);
 
   const onPageLoadSuccess = useCallback(({ width }: { width: number }) => {
     if (!pageWidth) {
       setPageWidth(width);
     }
   }, [pageWidth]);
+
+  const zoomIn = useCallback(() => {
+    setZoomLevel(prev => Math.min(prev * 1.25, 3.0)); // Max 300%
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    setZoomLevel(prev => Math.max(prev / 1.25, 0.25)); // Min 25%
+  }, []);
+
+  const resetZoom = useCallback(() => {
+    setZoomLevel(1.0);
+  }, []);
 
   const downloadLink = blobUrl || '#';
   const isDownloadDisabled = !blobUrl;
@@ -253,22 +266,28 @@ export const PDFViewer: FC = () => {
           background: white;
         }
         .navigation-button {
-          background: #007bff;
-          color: white;
-          border: none;
+          background: white;
+          color: #333;
+          border: 1px solid #ddd;
           padding: 8px 12px;
           border-radius: 4px;
           cursor: pointer;
           display: flex;
           align-items: center;
-          transition: background-color 0.2s;
+          transition: all 0.2s;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         .navigation-button:hover:not(:disabled) {
-          background: #0056b3;
+          background: #f8f9fa;
+          border-color: #adb5bd;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.15);
         }
         .navigation-button:disabled {
-          background: #ccc;
+          background: #f8f9fa;
+          color: #6c757d;
+          border-color: #e9ecef;
           cursor: not-allowed;
+          box-shadow: none;
         }
         .download-link {
           color: #007bff;
@@ -375,13 +394,38 @@ export const PDFViewer: FC = () => {
       }}>
         <div style={{ color: '#666', fontSize: '14px' }}>
           {contentType === 'application/pdf' && numPages > 0 && (
-            <span>Seite {currentPage} von {numPages}</span>
+            <span>Seite {currentPage} von {numPages} • {Math.round(zoomLevel * 100)}%</span>
           )}
         </div>
         
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {contentType === 'application/pdf' && numPages > 0 && (
             <>
+              <button 
+                className="navigation-button"
+                onClick={zoomOut} 
+                disabled={zoomLevel <= 0.25}
+                title="Verkleinern"
+              >
+                <ZoomOut size={18} />
+              </button>
+              <button 
+                className="navigation-button"
+                onClick={resetZoom} 
+                title="Zoom zurücksetzen"
+                style={{ fontSize: '12px', fontWeight: 'bold' }}
+              >
+                {Math.round(zoomLevel * 100)}%
+              </button>
+              <button 
+                className="navigation-button"
+                onClick={zoomIn} 
+                disabled={zoomLevel >= 3.0}
+                title="Vergrößern"
+              >
+                <ZoomIn size={18} />
+              </button>
+              <div style={{ width: '1px', height: '24px', backgroundColor: '#ddd', margin: '0 4px' }} />
               <button 
                 className="navigation-button"
                 onClick={goToPrevPage} 

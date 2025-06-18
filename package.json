@@ -36,9 +36,9 @@
     "prettier": "^3.0.3"
   },
   "retoolCustomComponentLibraryConfig": {
-    "name": "Pdfviewerbase64",
-    "label": "pdfviewerbase64",
-    "description": "views pdfs",
+    "name": "PdfAutoFocus",
+    "label": "pdf auto focus",
+    "description": "a",
     "entryPoint": "src/index.tsx",
     "outputPath": "dist"
   }
