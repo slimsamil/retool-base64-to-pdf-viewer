@@ -32,6 +32,9 @@ const detectContentType = (base64: string): string => {
   return 'application/pdf'; // Default fallback
 };
 
+// Globale Variable für persistenten Zoom-Level
+let globalZoomLevel = 1.0;
+
 export const PDFViewer: FC = () => {
   const [base64Data] = Retool.useStateString({ name: "base64Data" });
   const [fileName] = Retool.useStateString({ name: "pdfName" });
@@ -44,11 +47,17 @@ export const PDFViewer: FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [pageWidth, setPageWidth] = useState<number | null>(null);
-  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const [pageHeight, setPageHeight] = useState<number | null>(null);
+  const [zoomLevel, setZoomLevel] = useState<number>(globalZoomLevel);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const previousBlobUrl = useRef<string | null>(null);
+
+  // Zoom-Level global synchronisieren
+  useEffect(() => {
+    globalZoomLevel = zoomLevel;
+  }, [zoomLevel]);
 
   // Memoized blob creation
   const blobData = useMemo(() => {
@@ -187,15 +196,27 @@ export const PDFViewer: FC = () => {
     goToPage(Math.min(numPages, currentPage + 1));
   }, [currentPage, numPages, goToPage]);
 
+  // Bessere Skalierungslogik für verschiedene Formate
   const calcAutoScale = useCallback(() => {
     if (!containerWidth || !pageWidth) return zoomLevel;
+    
+    // Für sehr breite Seiten (Querformat) nicht automatisch skalieren
+    const aspectRatio = pageHeight && pageWidth ? pageWidth / pageHeight : 1;
+    const isLandscape = aspectRatio > 1.3;
+    
+    if (isLandscape && zoomLevel > 0.8) {
+      // Bei Querformat und höherem Zoom: Originalgröße verwenden
+      return zoomLevel;
+    }
+    
     const autoScale = (containerWidth - 40) / pageWidth; // 40px für Padding
-    return autoScale * zoomLevel; // Kombiniere Auto-Scale mit Zoom
-  }, [containerWidth, pageWidth, zoomLevel]);
+    return Math.min(autoScale, 1) * zoomLevel; // Nicht größer als Original, außer bei explizitem Zoom
+  }, [containerWidth, pageWidth, pageHeight, zoomLevel]);
 
-  const onPageLoadSuccess = useCallback(({ width }: { width: number }) => {
+  const onPageLoadSuccess = useCallback(({ width, height }: { width: number, height: number }) => {
     if (!pageWidth) {
       setPageWidth(width);
+      setPageHeight(height);
     }
   }, [pageWidth]);
 
@@ -213,6 +234,13 @@ export const PDFViewer: FC = () => {
 
   const downloadLink = blobUrl || '#';
   const isDownloadDisabled = !blobUrl;
+
+  // Bestimme ob horizontaler Scroll nötig ist
+  const needsHorizontalScroll = useMemo(() => {
+    if (!pageWidth || !containerWidth) return false;
+    const scaledWidth = pageWidth * calcAutoScale();
+    return scaledWidth > containerWidth - 40; // 40px für Padding
+  }, [pageWidth, containerWidth, calcAutoScale]);
 
   return (
     <div style={{ 
@@ -238,7 +266,7 @@ export const PDFViewer: FC = () => {
         }
         
         .viewer-container { 
-          overflow-y: auto; 
+          overflow: auto; /* Sowohl vertikal als auch horizontal */
           padding: 20px; 
           scrollbar-width: thin; 
           scrollbar-color: #888 #f1f1f1;
@@ -247,6 +275,7 @@ export const PDFViewer: FC = () => {
         }
         .viewer-container::-webkit-scrollbar { 
           width: 8px; 
+          height: 8px; /* Horizontaler Scrollbar */
         }
         .viewer-container::-webkit-scrollbar-track {
           background: #f1f1f1;
@@ -258,12 +287,23 @@ export const PDFViewer: FC = () => {
         .viewer-container::-webkit-scrollbar-thumb:hover {
           background: #555;
         }
+        .viewer-container::-webkit-scrollbar-corner {
+          background: #f1f1f1;
+        }
         .page-container {
           margin-bottom: 20px;
           box-shadow: 0 2px 8px rgba(0,0,0,0.1);
           border-radius: 4px;
           overflow: hidden;
           background: white;
+          display: inline-block;
+          min-width: fit-content;
+        }
+        .pages-wrapper {
+          min-width: fit-content;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
         }
         .navigation-button {
           background: white;
@@ -290,7 +330,7 @@ export const PDFViewer: FC = () => {
           box-shadow: none;
         }
         .download-link {
-          color: #007bff;
+          color: #6c757d;
           text-decoration: none;
           display: flex;
           align-items: center;
@@ -333,27 +373,29 @@ export const PDFViewer: FC = () => {
         )}
 
         {!loading && !error && blobUrl && contentType === 'application/pdf' && (
-          <Document 
-            file={blobUrl} 
-            onLoadSuccess={onDocumentLoadSuccess}
-            onLoadError={onDocumentLoadError}
-            loading=""
-          >
-            {Array.from({ length: numPages }, (_, i) => (
-              <div 
-                key={`page_${i + 1}`} 
-                ref={el => (pageRefs.current[i] = el)} 
-                className="page-container"
-              >
-                <Page
-                  pageNumber={i + 1}
-                  scale={calcAutoScale()}
-                  onLoadSuccess={onPageLoadSuccess}
-                  loading=""
-                />
-              </div>
-            ))}
-          </Document>
+          <div className="pages-wrapper">
+            <Document 
+              file={blobUrl} 
+              onLoadSuccess={onDocumentLoadSuccess}
+              onLoadError={onDocumentLoadError}
+              loading=""
+            >
+              {Array.from({ length: numPages }, (_, i) => (
+                <div 
+                  key={`page_${i + 1}`} 
+                  ref={el => (pageRefs.current[i] = el)} 
+                  className="page-container"
+                >
+                  <Page
+                    pageNumber={i + 1}
+                    scale={calcAutoScale()}
+                    onLoadSuccess={onPageLoadSuccess}
+                    loading=""
+                  />
+                </div>
+              ))}
+            </Document>
+          </div>
         )}
 
         {!loading && !error && blobUrl && contentType?.startsWith('image/') && (
@@ -394,7 +436,14 @@ export const PDFViewer: FC = () => {
       }}>
         <div style={{ color: '#666', fontSize: '14px' }}>
           {contentType === 'application/pdf' && numPages > 0 && (
-            <span>Seite {currentPage} von {numPages} • {Math.round(zoomLevel * 100)}%</span>
+            <span>
+              Seite {currentPage} von {numPages} • {Math.round(zoomLevel * 100)}%
+              {needsHorizontalScroll && (
+                <span style={{ color: '#007bff', marginLeft: '10px' }}>
+                
+                </span>
+              )}
+            </span>
           )}
         </div>
         

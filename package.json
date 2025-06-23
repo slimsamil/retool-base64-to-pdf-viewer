@@ -38,7 +38,7 @@
   "retoolCustomComponentLibraryConfig": {
     "name": "PdfAutoFocus",
     "label": "pdf auto focus",
-    "description": "a",
+    "description": "y#",
     "entryPoint": "src/index.tsx",
     "outputPath": "dist"
   }
