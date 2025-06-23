@@ -330,7 +330,7 @@ export const PDFViewer: FC = () => {
           box-shadow: none;
         }
         .download-link {
-          color: #6c757d;
+          color: #007bff;
           text-decoration: none;
           display: flex;
           align-items: center;
@@ -399,15 +399,18 @@ export const PDFViewer: FC = () => {
         )}
 
         {!loading && !error && blobUrl && contentType?.startsWith('image/') && (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
             <img 
               src={blobUrl} 
               alt={fileName || 'Bild'} 
               style={{ 
-                maxWidth: '100%', 
-                maxHeight: '100%',
+                maxWidth: 'none',
+                maxHeight: 'none',
+                width: `${zoomLevel * 100}%`,
+                height: 'auto',
                 borderRadius: '4px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                transition: 'width 0.2s ease'
               }} 
             />
           </div>
@@ -440,15 +443,20 @@ export const PDFViewer: FC = () => {
               Seite {currentPage} von {numPages} • {Math.round(zoomLevel * 100)}%
               {needsHorizontalScroll && (
                 <span style={{ color: '#007bff', marginLeft: '10px' }}>
-                
+                  ← → Zum Scrollen
                 </span>
               )}
+            </span>
+          )}
+          {contentType?.startsWith('image/') && (
+            <span>
+              {Math.round(zoomLevel * 100)}% • {fileName || 'Bild'}
             </span>
           )}
         </div>
         
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {contentType === 'application/pdf' && numPages > 0 && (
+          {(contentType === 'application/pdf' || contentType?.startsWith('image/')) && (
             <>
               <button 
                 className="navigation-button"
@@ -474,23 +482,27 @@ export const PDFViewer: FC = () => {
               >
                 <ZoomIn size={18} />
               </button>
-              <div style={{ width: '1px', height: '24px', backgroundColor: '#ddd', margin: '0 4px' }} />
-              <button 
-                className="navigation-button"
-                onClick={goToPrevPage} 
-                disabled={currentPage <= 1} 
-                title="Vorherige Seite"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button 
-                className="navigation-button"
-                onClick={goToNextPage} 
-                disabled={currentPage >= numPages} 
-                title="Nächste Seite"
-              >
-                <ChevronRight size={18} />
-              </button>
+              {contentType === 'application/pdf' && numPages > 0 && (
+                <>
+                  <div style={{ width: '1px', height: '24px', backgroundColor: '#ddd', margin: '0 4px' }} />
+                  <button 
+                    className="navigation-button"
+                    onClick={goToPrevPage} 
+                    disabled={currentPage <= 1} 
+                    title="Vorherige Seite"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button 
+                    className="navigation-button"
+                    onClick={goToNextPage} 
+                    disabled={currentPage >= numPages} 
+                    title="Nächste Seite"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </>
+              )}
             </>
           )}
           <a 
